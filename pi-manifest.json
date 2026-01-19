@@ -1,0 +1,16 @@
+{
+  "name": "UNHCR.pi",
+  "short_name": "UNHCR.pi",
+  "description": "Pi Network ecosystem application providing Pi-native web naming and digital utility services.",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0b5ed7",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
