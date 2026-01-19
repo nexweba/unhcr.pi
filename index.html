@@ -1,151 +1,126 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>UNHCR.pi | Pi-Native Utilities</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNHCR.pi - Pi Network Utility App</title>
+  <link rel="icon" href="logo.png" type="image/png">
+  <link rel="stylesheet" href="style.css">
+  
   <!-- Pi SDK -->
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+  <script>
+    // Initialize Pi SDK
+    Pi.init({ version: "2.0", sandbox: true });
 
+    async function unlockUtility() {
+      try {
+        // 1️⃣ Authenticate the user
+        const auth = await Pi.authenticate(
+          ["username", "payments"],
+          function (payment) {
+            console.log("Incomplete payment detected", payment);
+          }
+        );
+        console.log("User authenticated:", auth);
+
+        // 2️⃣ Trigger payment
+        const payment = await Pi.createPayment(
+          {
+            amount: 0.01,
+            memo: "Unlock utility access",
+            metadata: { app: "UNHCR.pi", feature: "utility_access" }
+          },
+          {
+            onReadyForServerApproval: (paymentId) => {
+              fetch("/functions/approve", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ paymentId })
+              });
+            },
+            onReadyForServerCompletion: (paymentId, txid) => {
+              fetch("/functions/complete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ paymentId, txid })
+              });
+            },
+            onCancel: (paymentId) => {
+              console.log("Payment cancelled", paymentId);
+            },
+            onError: (error) => {
+              console.error("Payment error", error);
+            }
+          }
+        );
+
+      } catch (err) {
+        console.error("Authentication or payment failed", err);
+        alert("Unable to process Testnet payment. Please try again.");
+      }
+    }
+  </script>
   <style>
-    :root {
-      --primary: #4f46e5;
-      --text: #0f172a;
-      --muted: #64748b;
-      --bg: #f8fafc;
-      --card: #ffffff;
-    }
-
     body {
+      font-family: Arial, sans-serif;
+      background-color: #f6f8fa;
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg);
+      padding: 0;
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: 100vh;
-      color: var(--text);
+      height: 100vh;
     }
-
     .container {
-      width: 100%;
-      max-width: 420px;
-      padding: 24px;
-    }
-
-    .card {
-      background: var(--card);
-      border-radius: 20px;
-      padding: 32px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.05);
       text-align: center;
+      background: #fff;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      max-width: 400px;
     }
-
-    .logo {
-      width: 56px;
-      height: 56px;
-      margin: 0 auto 16px;
-      border-radius: 14px;
-      background: var(--primary);
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      font-size: 18px;
-    }
-
     h1 {
-      margin: 0;
-      font-size: 22px;
+      font-size: 28px;
+      margin-bottom: 16px;
+      color: #1e90ff;
     }
-
     p {
-      margin: 12px 0 0;
-      color: var(--muted);
-      font-size: 14px;
-      line-height: 1.5;
+      font-size: 16px;
+      margin-bottom: 24px;
+      color: #333;
     }
-
     button {
-      margin-top: 28px;
-      width: 100%;
-      padding: 14px;
-      border-radius: 14px;
+      padding: 12px 24px;
+      font-size: 16px;
       border: none;
-      background: var(--primary);
-      color: white;
-      font-weight: 600;
-      font-size: 15px;
+      border-radius: 8px;
+      background-color: #1e90ff;
+      color: #fff;
       cursor: pointer;
+      transition: 0.3s;
     }
-
-    .note {
-      margin-top: 16px;
+    button:hover {
+      background-color: #0d6efd;
+    }
+    footer {
+      margin-top: 20px;
       font-size: 12px;
-      color: var(--muted);
+      color: #777;
     }
   </style>
 </head>
-
 <body>
   <div class="container">
-    <div class="card">
-      <div class="logo">π</div>
-
-      <h1>UNHCR.pi</h1>
-
-      <p>
-        A Pi Network ecosystem application providing Pi-native
-        web naming utilities, structured digital tools,
-        and domain-based services designed for scalable use.
-      </p>
-
-      <button onclick="unlock()">
-        Unlock Utility Access (0.01 Pi • Testnet)
-      </button>
-
-      <div class="note">
-        Pi Testnet only • No real funds • Optional utility access
-      </div>
-    </div>
+    <img src="logo.png" alt="UNHCR.pi Logo" width="80">
+    <h1>UNHCR.pi</h1>
+    <p>A Pi Network ecosystem application providing Pi-native web naming utilities, structured digital tools, and domain-based services.</p>
+    <button onclick="unlockUtility()">
+      Unlock Utility Access (0.01 Pi • Testnet)
+    </button>
+    <footer>
+      Testnet Only • No real funds
+    </footer>
   </div>
-
-<script>
-  Pi.init({ version: "2.0", sandbox: true });
-
-  async function unlock() {
-    const auth = await Pi.authenticate(["payments", "username"]);
-
-    Pi.createPayment(
-      {
-        amount: 0.01,
-        memo: "Utility Access – UNHCR.pi",
-        metadata: {
-          app: "unhcr.pi",
-          purpose: "utility_access"
-        }
-      },
-      {
-        onReadyForServerApproval: async (paymentId) => {
-          await fetch("/functions/approve", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentId })
-          });
-        },
-        onReadyForServerCompletion: async (paymentId, txid) => {
-          await fetch("/functions/complete", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentId, txid })
-          });
-          alert("Utility access unlocked successfully.");
-        }
-      }
-    );
-  }
-</script>
 </body>
 </html>
