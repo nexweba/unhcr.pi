@@ -1,0 +1,9 @@
+{
+  "app_name": "UNHCR.pi",
+  "ecosystem": "Pi Network",
+  "category": "Utility / Web Naming",
+  "version": "1.0.0",
+  "description": "A Pi Network ecosystem application offering Pi-native domain utilities and structured digital services.",
+  "status": "Ecosystem-ready",
+  "pi_browser_supported": true
+}
