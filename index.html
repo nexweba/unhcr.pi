@@ -1,126 +1,141 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UNHCR.pi - Pi Network Utility App</title>
-  <link rel="icon" href="logo.png" type="image/png">
-  <link rel="stylesheet" href="style.css">
-  
+  <meta charset="UTF-8" />
+  <title>UNHCR.pi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <!-- Pi SDK -->
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
-  <script>
-    // Initialize Pi SDK
-    Pi.init({ version: "2.0", sandbox: true });
 
-    async function unlockUtility() {
-      try {
-        // 1️⃣ Authenticate the user
-        const auth = await Pi.authenticate(
-          ["username", "payments"],
-          function (payment) {
-            console.log("Incomplete payment detected", payment);
-          }
-        );
-        console.log("User authenticated:", auth);
-
-        // 2️⃣ Trigger payment
-        const payment = await Pi.createPayment(
-          {
-            amount: 0.01,
-            memo: "Unlock utility access",
-            metadata: { app: "UNHCR.pi", feature: "utility_access" }
-          },
-          {
-            onReadyForServerApproval: (paymentId) => {
-              fetch("/functions/approve", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ paymentId })
-              });
-            },
-            onReadyForServerCompletion: (paymentId, txid) => {
-              fetch("/functions/complete", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ paymentId, txid })
-              });
-            },
-            onCancel: (paymentId) => {
-              console.log("Payment cancelled", paymentId);
-            },
-            onError: (error) => {
-              console.error("Payment error", error);
-            }
-          }
-        );
-
-      } catch (err) {
-        console.error("Authentication or payment failed", err);
-        alert("Unable to process Testnet payment. Please try again.");
-      }
-    }
-  </script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f6f8fa;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    .container {
+      background: #f7f7f7;
       text-align: center;
-      background: #fff;
-      padding: 40px;
-      border-radius: 16px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-      max-width: 400px;
+      padding: 40px 20px;
     }
-    h1 {
-      font-size: 28px;
-      margin-bottom: 16px;
-      color: #1e90ff;
-    }
-    p {
-      font-size: 16px;
-      margin-bottom: 24px;
-      color: #333;
+    .card {
+      background: #ffffff;
+      padding: 25px;
+      max-width: 420px;
+      margin: auto;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
     button {
-      padding: 12px 24px;
-      font-size: 16px;
-      border: none;
-      border-radius: 8px;
-      background-color: #1e90ff;
+      background: #6a0dad;
       color: #fff;
+      border: none;
+      padding: 14px 20px;
+      font-size: 16px;
+      border-radius: 8px;
       cursor: pointer;
-      transition: 0.3s;
+      width: 100%;
+      margin-top: 15px;
     }
-    button:hover {
-      background-color: #0d6efd;
+    button:disabled {
+      background: #aaa;
     }
-    footer {
-      margin-top: 20px;
+    .log {
       font-size: 12px;
-      color: #777;
+      margin-top: 15px;
+      color: #444;
+      word-break: break-word;
     }
   </style>
 </head>
+
 <body>
-  <div class="container">
-    <img src="logo.png" alt="UNHCR.pi Logo" width="80">
-    <h1>UNHCR.pi</h1>
-    <p>A Pi Network ecosystem application providing Pi-native web naming utilities, structured digital tools, and domain-based services.</p>
-    <button onclick="unlockUtility()">
-      Unlock Utility Access (0.01 Pi • Testnet)
-    </button>
-    <footer>
-      Testnet Only • No real funds
-    </footer>
+  <div class="card">
+    <h2>UNHCR.pi</h2>
+    <p>
+      A Pi Network ecosystem application providing Pi-native web naming utilities,
+      structured digital tools, and domain-based services.
+    </p>
+
+    <button id="authBtn">Authenticate with Pi</button>
+    <button id="payBtn" disabled>Unlock Utility Access (0.01 Pi • Testnet)</button>
+
+    <div class="log" id="log"></div>
   </div>
+
+<script>
+  const logBox = document.getElementById("log");
+  const authBtn = document.getElementById("authBtn");
+  const payBtn  = document.getElementById("payBtn");
+
+  function log(msg) {
+    console.log(msg);
+    logBox.innerText += msg + "\n";
+  }
+
+  // ✅ Initialize Pi SDK AFTER page loads
+  document.addEventListener("DOMContentLoaded", () => {
+    if (!window.Pi) {
+      log("❌ Pi SDK not detected. Open in Pi Browser.");
+      return;
+    }
+
+    Pi.init({ version: "2.0", sandbox: true });
+    log("✅ Pi SDK initialized (Testnet)");
+  });
+
+  // ✅ AUTHENTICATION (must be user-click)
+  authBtn.onclick = async () => {
+    try {
+      log("🔐 Authenticating user...");
+      const scopes = ["username", "payments"];
+
+      const auth = await Pi.authenticate(scopes, () => {
+        log("⚠️ Incomplete payment found");
+      });
+
+      log("✅ Auth success");
+      log("👤 Username: " + auth.user.username);
+
+      authBtn.disabled = true;
+      payBtn.disabled = false;
+    } catch (err) {
+      log("❌ Auth failed");
+      log(JSON.stringify(err));
+    }
+  };
+
+  // ✅ PAYMENT (user-click only)
+  payBtn.onclick = async () => {
+    try {
+      log("💰 Creating payment...");
+
+      const paymentData = {
+        amount: 0.01,
+        memo: "UNHCR.pi Utility Access (Testnet)",
+        metadata: { service: "utility_access" }
+      };
+
+      const callbacks = {
+        onReadyForServerApproval: (paymentId) => {
+          log("🟡 Server approval needed: " + paymentId);
+        },
+        onReadyForServerCompletion: (paymentId, txid) => {
+          log("🟢 Payment completed");
+          log("TXID: " + txid);
+        },
+        onCancel: () => {
+          log("❌ Payment cancelled");
+        },
+        onError: (err) => {
+          log("❌ Payment error");
+          log(JSON.stringify(err));
+        }
+      };
+
+      await Pi.createPayment(paymentData, callbacks);
+    } catch (err) {
+      log("❌ Payment failed");
+      log(JSON.stringify(err));
+    }
+  };
+</script>
 </body>
 </html>
