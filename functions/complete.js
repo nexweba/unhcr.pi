@@ -1,8 +1,15 @@
-exports.handler = async (event) => {
-  return {
-    statusCode: 200,
-    body: JSON.stringify({
-      completed: true
-    })
-  };
-};
+export async function onRequestPost(context) {
+  const { paymentId, txid } = await context.request.json();
+
+  return new Response(
+    JSON.stringify({
+      status: "completed",
+      paymentId: paymentId,
+      txid: txid
+    }),
+    {
+      headers: { "Content-Type": "application/json" },
+      status: 200
+    }
+  );
+}
