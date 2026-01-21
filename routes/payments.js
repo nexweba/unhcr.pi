@@ -8,42 +8,39 @@ const PI_API_KEY = process.env.PI_API_KEY;
 
 const headers = {
   Authorization: `Key ${PI_API_KEY}`,
-  "Content-Type": "application/json"
+  "Content-Type": "application/json",
 };
 
-// STEP 8b — approve payment
-router.post("/approve", async (req, res) => {
-  const { paymentId } = req.body;
+// ONE endpoint that Pi payments actually need
+router.post("/process", async (req, res) => {
+  const { paymentId, txid } = req.body;
+
+  if (!paymentId) {
+    return res.status(400).json({ error: "Missing paymentId" });
+  }
 
   try {
+    // 1️⃣ APPROVE
     await axios.post(
       `${PI_API}/v2/payments/${paymentId}/approve`,
       {},
       { headers }
     );
 
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Approve error:", err.response?.data || err.message);
-    res.status(500).json({ error: "Approval failed" });
-  }
-});
-
-// STEP 8d — complete payment
-router.post("/complete", async (req, res) => {
-  const { paymentId, txid } = req.body;
-
-  try {
+    // 2️⃣ COMPLETE (txid is optional on testnet)
     await axios.post(
       `${PI_API}/v2/payments/${paymentId}/complete`,
-      { txid },
+      { txid: txid || "testnet-tx" },
       { headers }
     );
 
     res.json({ success: true });
   } catch (err) {
-    console.error("Complete error:", err.response?.data || err.message);
-    res.status(500).json({ error: "Completion failed" });
+    console.error(
+      "Payment processing error:",
+      err.response?.data || err.message
+    );
+    res.status(500).json({ error: "Payment processing failed" });
   }
 });
 
