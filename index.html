@@ -5,7 +5,7 @@
   <title>UNHCR.pi</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Pi SDK -->
+  <!-- Pi SDK (OFFICIAL) -->
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
 
   <style>
@@ -36,12 +36,15 @@
     }
     button:disabled {
       background: #aaa;
+      cursor: not-allowed;
     }
     .log {
       font-size: 12px;
       margin-top: 15px;
       color: #444;
+      white-space: pre-wrap;
       word-break: break-word;
+      text-align: left;
     }
   </style>
 </head>
@@ -49,13 +52,16 @@
 <body>
   <div class="card">
     <h2>UNHCR.pi</h2>
+
     <p>
-      A Pi Network ecosystem application providing Pi-native web naming utilities,
-      structured digital tools, and domain-based services.
+      Pi-native web naming, domain utilities, and digital services
+      for scalable, ecosystem-ready projects.
     </p>
 
     <button id="authBtn">Authenticate with Pi</button>
-    <button id="payBtn" disabled>Unlock Utility Access (0.01 Pi • Testnet)</button>
+    <button id="payBtn" disabled>
+      Unlock Utility Access (0.01 Pi • Testnet)
+    </button>
 
     <div class="log" id="log"></div>
   </div>
@@ -65,44 +71,50 @@
   const authBtn = document.getElementById("authBtn");
   const payBtn  = document.getElementById("payBtn");
 
-  function log(msg) {
-    console.log(msg);
-    logBox.innerText += msg + "\n";
+  function log(message) {
+    console.log(message);
+    logBox.textContent += message + "\n";
   }
 
-  // ✅ Initialize Pi SDK AFTER page loads
+  // ✅ Initialize Pi SDK (REQUIRED)
   document.addEventListener("DOMContentLoaded", () => {
     if (!window.Pi) {
-      log("❌ Pi SDK not detected. Open in Pi Browser.");
+      log("❌ Pi SDK not detected. Open this app in Pi Browser.");
       return;
     }
 
-    Pi.init({ version: "2.0", sandbox: true });
+    Pi.init({
+      version: "2.0",
+      sandbox: true   // testnet
+    });
+
     log("✅ Pi SDK initialized (Testnet)");
   });
 
-  // ✅ AUTHENTICATION (must be user-click)
+  // ✅ AUTHENTICATION (USER CLICK ONLY)
   authBtn.onclick = async () => {
     try {
       log("🔐 Authenticating user...");
+
       const scopes = ["username", "payments"];
 
-      const auth = await Pi.authenticate(scopes, () => {
+      const authResult = await Pi.authenticate(scopes, () => {
         log("⚠️ Incomplete payment found");
       });
 
-      log("✅ Auth success");
-      log("👤 Username: " + auth.user.username);
+      log("✅ Authentication successful");
+      log("👤 Username: " + authResult.user.username);
 
       authBtn.disabled = true;
       payBtn.disabled = false;
+
     } catch (err) {
-      log("❌ Auth failed");
+      log("❌ Authentication failed");
       log(JSON.stringify(err));
     }
   };
 
-  // ✅ PAYMENT (user-click only)
+  // ✅ PAYMENT (USER CLICK ONLY)
   payBtn.onclick = async () => {
     try {
       log("💰 Creating payment...");
@@ -110,20 +122,53 @@
       const paymentData = {
         amount: 0.01,
         memo: "UNHCR.pi Utility Access (Testnet)",
-        metadata: { service: "utility_access" }
+        metadata: {
+          service: "utility_access"
+        }
       };
 
       const callbacks = {
-        onReadyForServerApproval: (paymentId) => {
-          log("🟡 Server approval needed: " + paymentId);
+
+        // 🔴 REQUIRED: call your backend
+        onReadyForServerApproval: async (paymentId) => {
+          log("🟡 Server approval required");
+          log("Payment ID: " + paymentId);
+
+          await fetch(
+            "https://unhcr-pi.onrender.com/payments/process",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ paymentId })
+            }
+          );
         },
-        onReadyForServerCompletion: (paymentId, txid) => {
-          log("🟢 Payment completed");
+
+        // 🔴 REQUIRED: complete on backend
+        onReadyForServerCompletion: async (paymentId, txid) => {
+          log("🟢 Server completion required");
           log("TXID: " + txid);
+
+          await fetch(
+            "https://unhcr-pi.onrender.com/payments/process",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ paymentId, txid })
+            }
+          );
+
+          log("✅ Payment fully processed");
         },
+
         onCancel: () => {
-          log("❌ Payment cancelled");
+          log("❌ Payment cancelled by user");
         },
+
         onError: (err) => {
           log("❌ Payment error");
           log(JSON.stringify(err));
@@ -131,8 +176,9 @@
       };
 
       await Pi.createPayment(paymentData, callbacks);
+
     } catch (err) {
-      log("❌ Payment failed");
+      log("❌ Payment creation failed");
       log(JSON.stringify(err));
     }
   };
