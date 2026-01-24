@@ -36,6 +36,7 @@
     }
     button:disabled {
       background: #aaa;
+      cursor: not-allowed;
     }
     .log {
       font-size: 12px;
@@ -69,7 +70,7 @@
     logBox.textContent += msg + "\n";
   }
 
-  // 1️⃣ Init Pi SDK
+  // 1️⃣ Init Pi SDK (Testnet)
   document.addEventListener("DOMContentLoaded", () => {
     if (!window.Pi) {
       log("❌ Pi SDK not found. Open in Pi Browser.");
@@ -79,7 +80,7 @@
     log("✅ Pi SDK initialized (Testnet)");
   });
 
-  // 2️⃣ Authenticate
+  // 2️⃣ Authenticate user
   authBtn.onclick = async () => {
     try {
       log("🔐 Authenticating user...");
@@ -101,7 +102,7 @@
     }
   };
 
-  // 3️⃣ Create payment (ONLY when user clicks)
+  // 3️⃣ Create payment (ONLY when button is clicked)
   payBtn.onclick = async () => {
     try {
       log("💰 Creating payment...");
@@ -113,28 +114,29 @@
           metadata: { service: "utility_access" }
         },
         {
-          onReadyForServerApproval: async (paymentId) => {
-            log("🟡 Server approval needed: " + paymentId);
-
-            await fetch("https://unhcr-pi.onrender.com/payments/process", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ paymentId })
-            });
-          },
-
+          // ✅ ONLY SERVER CALL (approve + complete handled backend)
           onReadyForServerCompletion: async (paymentId, txid) => {
-            log("🟢 Completing payment...");
+            log("🟢 Server completing payment...");
+            log("Payment ID: " + paymentId);
             log("TXID: " + txid);
 
-            await fetch("https://unhcr-pi.onrender.com/payments/process", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ paymentId, txid })
-            });
+            const res = await fetch(
+              "https://unhcr-pi.onrender.com/payments/process",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ paymentId, txid })
+              }
+            );
 
-            log("✅ Payment fully completed");
-            alert("Access unlocked successfully!");
+            const data = await res.json();
+
+            if (data.success) {
+              log("✅ Payment fully completed");
+              alert("Access unlocked successfully!");
+            } else {
+              log("❌ Server failed to complete payment");
+            }
           },
 
           onCancel: () => {
@@ -153,24 +155,11 @@
     }
   };
 
-  // 🔑 4️⃣ Handle INCOMPLETE payments (NO new payment!)
-  async function onIncompletePaymentFound(payment) {
+  // 4️⃣ Handle incomplete payments (NO auto-processing)
+  function onIncompletePaymentFound(payment) {
     log("⚠️ Incomplete payment found");
     log("Payment ID: " + payment.identifier);
-
-    try {
-      await fetch("https://unhcr-pi.onrender.com/payments/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentId: payment.identifier })
-      });
-
-      log("✅ Previous payment completed");
-
-    } catch (err) {
-      log("❌ Failed to process incomplete payment");
-      log(JSON.stringify(err));
-    }
+    log("ℹ️ Please complete the payment manually.");
   }
 </script>
 </body>
