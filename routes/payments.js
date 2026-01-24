@@ -11,29 +11,41 @@ const headers = {
   "Content-Type": "application/json",
 };
 
-// ONE endpoint that Pi payments actually need
 router.post("/process", async (req, res) => {
   const { paymentId, txid } = req.body;
 
-  if (!paymentId) return res.status(400).json({ error: "Missing paymentId" });
+  if (!paymentId) {
+    return res.status(400).json({ error: "Missing paymentId" });
+  }
 
   try {
-    // ✅ Check current payment status first
-    const { data: paymentStatus } = await axios.get(`${PI_API}/v2/payments/${paymentId}`, { headers });
+    // 1️⃣ Get payment status
+    const { data } = await axios.get(
+      `${PI_API}/v2/payments/${paymentId}`,
+      { headers }
+    );
 
-    // Approve only if not yet approved
-    if (!paymentStatus.status.developer_approved) {
-      await axios.post(`${PI_API}/v2/payments/${paymentId}/approve`, {}, { headers });
+    // 2️⃣ Approve payment (if not approved)
+    if (!data.status.developer_approved) {
+      await axios.post(
+        `${PI_API}/v2/payments/${paymentId}/approve`,
+        {},
+        { headers }
+      );
     }
 
-    // Complete payment (txid optional on testnet)
-    if (!paymentStatus.status.developer_completed) {
-      await axios.post(`${PI_API}/v2/payments/${paymentId}/complete`, { txid: txid || "testnet-tx" }, { headers });
+    // 3️⃣ Complete payment
+    if (!data.status.developer_completed) {
+      await axios.post(
+        `${PI_API}/v2/payments/${paymentId}/complete`,
+        { txid: txid || "testnet-tx" },
+        { headers }
+      );
     }
 
     res.json({ success: true });
   } catch (err) {
-    console.error("Payment processing error:", err.response?.data || err.message);
+    console.error("Payment error:", err.response?.data || err.message);
     res.status(500).json({ error: "Payment processing failed" });
   }
 });
