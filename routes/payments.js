@@ -11,6 +11,7 @@ const headers = {
   "Content-Type": "application/json",
 };
 
+// 🔥 OFFICIAL Pi payment processor
 router.post("/process", async (req, res) => {
   const { paymentId, txid } = req.body;
 
@@ -20,13 +21,13 @@ router.post("/process", async (req, res) => {
 
   try {
     // 1️⃣ Get payment status
-    const { data } = await axios.get(
+    const { data: payment } = await axios.get(
       `${PI_API}/v2/payments/${paymentId}`,
       { headers }
     );
 
-    // 2️⃣ Approve payment (if not approved)
-    if (!data.status.developer_approved) {
+    // 2️⃣ Approve ONLY if not approved
+    if (!payment.status.developer_approved) {
       await axios.post(
         `${PI_API}/v2/payments/${paymentId}/approve`,
         {},
@@ -34,8 +35,8 @@ router.post("/process", async (req, res) => {
       );
     }
 
-    // 3️⃣ Complete payment
-    if (!data.status.developer_completed) {
+    // 3️⃣ Complete ONLY if not completed
+    if (!payment.status.developer_completed) {
       await axios.post(
         `${PI_API}/v2/payments/${paymentId}/complete`,
         { txid: txid || "testnet-tx" },
@@ -43,10 +44,11 @@ router.post("/process", async (req, res) => {
       );
     }
 
-    res.json({ success: true });
+    return res.json({ success: true });
+
   } catch (err) {
-    console.error("Payment error:", err.response?.data || err.message);
-    res.status(500).json({ error: "Payment processing failed" });
+    console.error("Pi payment error:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Payment processing failed" });
   }
 });
 
