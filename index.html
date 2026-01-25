@@ -3,164 +3,104 @@
 <head>
   <meta charset="UTF-8" />
   <title>UNHCR.pi</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <!-- Pi SDK -->
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f7f7f7;
-      text-align: center;
-      padding: 40px 20px;
-    }
-    .card {
-      background: #ffffff;
-      padding: 25px;
-      max-width: 420px;
-      margin: auto;
-      border-radius: 12px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-    button {
-      background: #6a0dad;
-      color: #fff;
-      border: none;
-      padding: 14px 20px;
-      font-size: 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      width: 100%;
-      margin-top: 15px;
-    }
-    button:disabled {
-      background: #aaa;
-      cursor: not-allowed;
-    }
-    .log {
-      font-size: 12px;
-      margin-top: 15px;
-      color: #333;
-      text-align: left;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-  </style>
 </head>
-
 <body>
-  <div class="card">
-    <h2>UNHCR.pi Utility Access</h2>
-    <p>Unlock premium utility features (Testnet)</p>
 
-    <button id="authBtn">Authenticate with Pi</button>
-    <button id="payBtn" disabled>Unlock Access (0.01 Pi)</button>
+<h2>UNHCR.pi Utility Access (Testnet)</h2>
 
-    <div class="log" id="log"></div>
-  </div>
+<button id="authBtn">Authenticate with Pi</button>
+<button id="payBtn" disabled>Unlock Access (0.01 Pi)</button>
+
+<pre id="log"></pre>
 
 <script>
-  const logBox = document.getElementById("log");
-  const authBtn = document.getElementById("authBtn");
-  const payBtn  = document.getElementById("payBtn");
+const logBox = document.getElementById("log");
+const authBtn = document.getElementById("authBtn");
+const payBtn  = document.getElementById("payBtn");
 
-  function log(msg) {
-    console.log(msg);
-    logBox.textContent += msg + "\n";
+function log(msg) {
+  logBox.textContent += msg + "\n";
+}
+
+// 1️⃣ Init Pi SDK
+document.addEventListener("DOMContentLoaded", () => {
+  Pi.init({ version: "2.0", sandbox: true });
+  log("✅ Pi SDK initialized (Testnet)");
+});
+
+// 2️⃣ Authenticate
+authBtn.onclick = async () => {
+  try {
+    const auth = await Pi.authenticate(
+      ["username", "payments"],
+      onIncompletePaymentFound
+    );
+
+    log("✅ Authenticated: " + auth.user.username);
+    authBtn.disabled = true;
+    payBtn.disabled = false;
+
+  } catch (err) {
+    log("❌ Auth failed");
   }
+};
 
-  // 1️⃣ Init Pi SDK (Testnet)
-  document.addEventListener("DOMContentLoaded", () => {
-    if (!window.Pi) {
-      log("❌ Pi SDK not found. Open in Pi Browser.");
-      return;
-    }
-    Pi.init({ version: "2.0", sandbox: true });
-    log("✅ Pi SDK initialized (Testnet)");
+// 3️⃣ Create payment (ONLY on click)
+payBtn.onclick = async () => {
+  try {
+    await Pi.createPayment(
+      {
+        amount: 0.01,
+        memo: "UNHCR.pi Utility Access (Testnet)",
+        metadata: { service: "utility_access" }
+      },
+      {
+        onReadyForServerApproval: async (paymentId) => {
+          log("🟡 Approving payment: " + paymentId);
+
+          await fetch("https://unhcr-pi.onrender.com/payments/process", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentId })
+          });
+        },
+
+        onReadyForServerCompletion: async (paymentId, txid) => {
+          log("🟢 Completing payment");
+
+          await fetch("https://unhcr-pi.onrender.com/payments/process", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentId, txid })
+          });
+
+          log("✅ Payment completed");
+          alert("Access unlocked!");
+        },
+
+        onCancel: () => log("❌ User cancelled"),
+        onError: () => log("❌ Payment error")
+      }
+    );
+  } catch {
+    log("❌ Payment creation failed");
+  }
+};
+
+// 4️⃣ Handle incomplete payments (NO new payment)
+async function onIncompletePaymentFound(payment) {
+  log("⚠️ Completing previous payment");
+
+  await fetch("https://unhcr-pi.onrender.com/payments/process", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ paymentId: payment.identifier })
   });
 
-  // 2️⃣ Authenticate user
-  authBtn.onclick = async () => {
-    try {
-      log("🔐 Authenticating user...");
-
-      const auth = await Pi.authenticate(
-        ["username", "payments"],
-        onIncompletePaymentFound
-      );
-
-      log("✅ Authentication successful");
-      log("👤 Username: " + auth.user.username);
-
-      authBtn.disabled = true;
-      payBtn.disabled = false;
-
-    } catch (err) {
-      log("❌ Authentication failed");
-      log(JSON.stringify(err));
-    }
-  };
-
-  // 3️⃣ Create payment (ONLY when button is clicked)
-  payBtn.onclick = async () => {
-    try {
-      log("💰 Creating payment...");
-
-      await Pi.createPayment(
-        {
-          amount: 0.01,
-          memo: "UNHCR.pi Utility Access (Testnet)",
-          metadata: { service: "utility_access" }
-        },
-        {
-          // ✅ ONLY SERVER CALL (approve + complete handled backend)
-          onReadyForServerCompletion: async (paymentId, txid) => {
-            log("🟢 Server completing payment...");
-            log("Payment ID: " + paymentId);
-            log("TXID: " + txid);
-
-            const res = await fetch(
-              "https://unhcr-pi.onrender.com/payments/process",
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ paymentId, txid })
-              }
-            );
-
-            const data = await res.json();
-
-            if (data.success) {
-              log("✅ Payment fully completed");
-              alert("Access unlocked successfully!");
-            } else {
-              log("❌ Server failed to complete payment");
-            }
-          },
-
-          onCancel: () => {
-            log("❌ Payment cancelled by user");
-          },
-
-          onError: (err) => {
-            log("❌ Payment error");
-            log(JSON.stringify(err));
-          }
-        }
-      );
-    } catch (err) {
-      log("❌ Payment creation failed");
-      log(JSON.stringify(err));
-    }
-  };
-
-  // 4️⃣ Handle incomplete payments (NO auto-processing)
-  function onIncompletePaymentFound(payment) {
-    log("⚠️ Incomplete payment found");
-    log("Payment ID: " + payment.identifier);
-    log("ℹ️ Please complete the payment manually.");
-  }
+  log("✅ Previous payment resolved");
+}
 </script>
+
 </body>
 </html>
